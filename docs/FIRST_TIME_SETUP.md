@@ -2,7 +2,9 @@
 
 > Getting started without the footguns.
 
-This guide walks you through setup based on your background. We've tested this on fresh machines and documented every gotcha so you don't have to discover them yourself.
+This guide walks you through setting up the Data Analytics Expert Agent. We've tested this on fresh machines and documented every gotcha so you don't have to discover them yourself.
+
+**Note:** This project is configured for the Data Analytics domain. To use the PMM agent, set `DOMAIN=pmm` in your `.env` file.
 
 ---
 
@@ -54,7 +56,7 @@ git --version
 2. Sign up or log in
 3. Click "Get API Keys" in the left sidebar
 4. Click "Create Key"
-5. Name it "jai-agent-accelerator"
+5. Name it "data-analytics-agent" (or any name you prefer - this is just for your reference)
 6. **Copy the key immediately** — you won't see it again
 
 **The key looks like:** `sk-ant-api03-xxxxxxxxxxxxx`
@@ -65,15 +67,13 @@ git --version
 
 ```bash
 cd ~/Desktop
-git clone https://github.com/chai-with-jai/jai-agent-accelerator.git
-cd jai-agent-accelerator
+git clone <your-repo-url>
+cd data-analytics-agent
 ```
 
-**Footgun:** If you get "Permission denied," try:
-```bash
-git clone https://github.com/chai-with-jai/jai-agent-accelerator.git
-```
-(without the `git@` prefix)
+**Note:** Replace `<your-repo-url>` with your actual repository URL.
+
+**Footgun:** If you get "Permission denied," make sure you have access to the repository.
 
 ### Step 3: Set Up the Backend
 
@@ -81,6 +81,8 @@ git clone https://github.com/chai-with-jai/jai-agent-accelerator.git
 cd apps/agent
 python3 -m venv .venv
 ```
+
+**Note:** If you see a `.env.example` file, you can copy it to `.env` later to set your environment variables easily.
 
 **Now activate the virtual environment:**
 
@@ -115,29 +117,51 @@ This takes 2-3 minutes. You'll see a lot of text scrolling by. That's normal.
 
 ### Step 4: Set Your API Key
 
+**Option 1: Using .env file (Recommended)**
+
+```bash
+# Copy the example file
+cp .env.example .env
+
+# Edit .env and add your API key
+# On Mac/Linux:
+nano .env
+# On Windows:
+notepad .env
+
+# Add this line (replace with your actual key):
+# ANTHROPIC_API_KEY=sk-ant-your-key-here
+# DOMAIN=data_analytics
+```
+
+**Option 2: Export in terminal**
+
 **Mac/Linux:**
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-your-key-here
+export DOMAIN=data_analytics
 ```
 
 **Windows (Command Prompt):**
 ```bash
 set ANTHROPIC_API_KEY=sk-ant-your-key-here
+set DOMAIN=data_analytics
 ```
 
 **Windows (PowerShell):**
 ```bash
 $env:ANTHROPIC_API_KEY="sk-ant-your-key-here"
+$env:DOMAIN="data_analytics"
 ```
 
 **Footgun:** Replace `sk-ant-your-key-here` with YOUR actual key from Step 1.
 
-**Footgun:** This only lasts for this terminal session. If you close the terminal, you'll need to set it again. (We'll fix this in deployment.)
+**Footgun:** The `.env` file method persists across terminal sessions. Export method only lasts for this session.
 
 ### Step 5: Start the Backend
 
 ```bash
-python -m uvicorn pmm_agent.server:app --host 0.0.0.0 --port 8123
+python3 -m uvicorn src.pmm_agent.server:app --port 8123
 ```
 
 You should see:
@@ -159,7 +183,7 @@ lsof -ti:8123 | xargs kill  # Mac/Linux
 **Open a NEW terminal window** (Cmd+T on Mac, or open Terminal again).
 
 ```bash
-cd ~/Desktop/jai-agent-accelerator/apps/web
+cd ~/Desktop/data-analytics-agent/apps/web
 npm install
 ```
 
@@ -180,10 +204,11 @@ VITE v5.x.x ready in xxx ms
 ### Step 7: Use Your Agent
 
 1. Open [http://localhost:3003](http://localhost:3003) in your browser
-2. Ask: "What is product positioning and why does it matter?"
-3. Watch the response stream in
+2. You should see the **Data Analytics Expert Agent** with blue/cyan theme
+3. Try a quick action like "Create a metrics dictionary"
+4. Or ask: "Help me define KPIs for user activation"
 
-**You're running a production-grade AI agent.**
+**You're running a production-grade AI agent configured for data analytics.**
 
 ### If Something Went Wrong
 
@@ -221,16 +246,22 @@ git --version      # Need 2.0+
 
 ```bash
 # Clone
-git clone https://github.com/chai-with-jai/jai-agent-accelerator.git
-cd jai-agent-accelerator
+git clone <your-repo-url>
+cd data-analytics-agent
 
 # Backend
 cd apps/agent
 python3 -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -e .
+# Set up .env file (recommended)
+cp .env.example .env
+# Edit .env and add your ANTHROPIC_API_KEY and DOMAIN=data_analytics
+
+# Or export directly
 export ANTHROPIC_API_KEY=sk-ant-your-key
-python -m uvicorn pmm_agent.server:app --host 0.0.0.0 --port 8123
+export DOMAIN=data_analytics
+python3 -m uvicorn src.pmm_agent.server:app --port 8123
 
 # Frontend (new terminal)
 cd apps/web
@@ -281,12 +312,14 @@ source ~/.zshrc  # or ~/.bashrc
 ### TL;DR
 
 ```bash
-git clone https://github.com/chai-with-jai/jai-agent-accelerator.git && cd jai-agent-accelerator
+git clone <your-repo-url> && cd data-analytics-agent
 
 # Backend
 cd apps/agent && python3 -m venv .venv && source .venv/bin/activate && pip install -e .
-export ANTHROPIC_API_KEY=sk-ant-xxx
-uvicorn pmm_agent.server:app --host 0.0.0.0 --port 8123 &
+cp .env.example .env
+# Edit .env with your ANTHROPIC_API_KEY and DOMAIN=data_analytics
+# Or: export ANTHROPIC_API_KEY=sk-ant-xxx && export DOMAIN=data_analytics
+python3 -m uvicorn src.pmm_agent.server:app --port 8123 &
 
 # Frontend
 cd ../web && npm i && npm run dev
@@ -298,12 +331,17 @@ cd ../web && npm i && npm run dev
 
 ```
 apps/agent/src/pmm_agent/
-├── agent.py     # LangGraph agent factory, 5 modes
-├── prompts.py   # MoE methodology, Giants framework
-├── server.py    # FastAPI, /chat and /chat/stream
-└── tools/       # 15+ tools (intake, research, planning, risk)
+├── agent.py     # LangGraph agent factory, domain switching
+├── prompts.py   # PMM prompts (legacy)
+├── server.py    # FastAPI, /chat and /chat/stream, /config
+├── domains/
+│   └── data_analytics/
+│       ├── prompts.py   # Analytics system + specialist prompts
+│       └── tools/       # Analytics tools (intake, research, planning, risk)
+└── tools/       # PMM tools (legacy)
 
-apps/web/        # React + Vite + Tailwind, streaming chat
+apps/web/        # React + Vite + Tailwind, domain-aware frontend
+config/domains/  # Domain configurations (data_analytics.json)
 ```
 
 ### For Productionization
@@ -432,9 +470,10 @@ Run through this before saying "it's working":
 | Check | Command | Expected |
 |-------|---------|----------|
 | Backend running | `curl http://localhost:8123/health` | `{"status": "ok"...}` |
-| Frontend running | Open http://localhost:3003 | See chat interface |
+| Frontend running | Open http://localhost:3003 | See analytics agent interface (blue theme) |
 | Agent responds | Ask a question | See streaming response |
-| Tools working | Ask "Analyze Slack's positioning" | See structured output |
+| Domain correct | `curl http://localhost:8123/config` | `{"domain": "data_analytics"...}` |
+| Tools working | Use "Create a metrics dictionary" quick action | See structured output |
 
 ---
 
