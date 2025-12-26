@@ -46,20 +46,38 @@ from langchain_core.runnables import RunnableLambda
 from .prompts import MAIN_SYSTEM_PROMPT
 from .tools import ALL_TOOLS
 from .observability import get_logger
-from .agent import create_pmm_agent
+from .agent import create_pmm_agent, create_analytics_agent, _load_domain_config
 
-# Create a tool lookup for execution
-TOOL_MAP = {tool.name: tool for tool in ALL_TOOLS}
-
-# Initialize the ReAct agent - this enforces tool usage
+# Domain selection - defaults to "pmm" for backward compatibility
+domain = os.getenv("DOMAIN", "pmm")
 model_name = os.getenv("MODEL", "claude-sonnet-4-20250514")
-agent = create_pmm_agent(mode="full", model_name=model_name)
+
+# Initialize the ReAct agent based on domain selection
+if domain == "data_analytics":
+    try:
+        from .domains.data_analytics.tools import ALL_TOOLS as ANALYTICS_ALL_TOOLS
+        agent = create_analytics_agent(mode="full", model_name=model_name)
+        TOOL_MAP = {tool.name: tool for tool in ANALYTICS_ALL_TOOLS}
+        logger = get_logger()
+        logger.logger.info(f"📊 Analytics domain agent initialized")
+    except ImportError as e:
+        # Fallback to PMM if analytics domain not fully implemented
+        logger = get_logger()
+        logger.logger.warning(f"⚠️  Analytics domain not available ({e}), falling back to PMM")
+        agent = create_pmm_agent(mode="full", model_name=model_name)
+        TOOL_MAP = {tool.name: tool for tool in ALL_TOOLS}
+else:
+    # Default to PMM agent
+    agent = create_pmm_agent(mode="full", model_name=model_name)
+    TOOL_MAP = {tool.name: tool for tool in ALL_TOOLS}
 
 # Configure root_path for Vercel deployment
 # Vercel passes /api/* paths, so FastAPI needs to know it's mounted at /api
 import os
 root_path = "/api" if os.getenv("VERCEL") else ""
-app = FastAPI(title="PMM Deep Agent", version="0.1.0", root_path=root_path)
+# App title based on domain
+app_title = "Data Analytics Expert Agent" if domain == "data_analytics" else "PMM Deep Agent"
+app = FastAPI(title=app_title, version="0.1.0", root_path=root_path)
 
 # CORS configuration - restrict origins in production
 def get_allowed_origins():
@@ -115,15 +133,27 @@ async def startup_check():
 # Simple in-memory session storage
 sessions: dict = {}
 
-# Initialize observability
-logger = get_logger()
+# Initialize observability (if not already initialized above)
+if 'logger' not in locals():
+    logger = get_logger()
 
-# Log which model is being used (for debugging/verification)
-# Note: model_name is already defined above when creating the agent
-logger.logger.info(f"🤖 Agent initialized with model: {model_name}")
+# Log which model and domain are being used (for debugging/verification)
+logger.logger.info(f"🤖 Agent initialized - Domain: {domain}, Model: {model_name}")
 
 # Configuration
 MAX_MESSAGE_HISTORY = int(os.getenv("MAX_MESSAGE_HISTORY", "100"))  # Keep last 100 messages per session
+
+# Helper function to get system prompt based on domain
+def get_system_prompt() -> str:
+    """Get the appropriate system prompt based on the current domain."""
+    if domain == "data_analytics":
+        try:
+            from .domains.data_analytics.prompts import MAIN_SYSTEM_PROMPT as ANALYTICS_SYSTEM_PROMPT
+            return ANALYTICS_SYSTEM_PROMPT
+        except ImportError:
+            return MAIN_SYSTEM_PROMPT  # Fallback to PMM
+    else:
+        return MAIN_SYSTEM_PROMPT
 
 
 def truncate_session_messages(session_messages: list) -> list:
@@ -171,6 +201,43 @@ def health(request: Request):
     # Return cached response for better performance
     return get_health_response()
 
+@app.get("/config")
+@limiter.limit("60/minute")  # 60 requests per minute for config
+def get_config(request: Request):
+    """Get frontend configuration including domain and quick actions."""
+    if domain == "data_analytics":
+        try:
+            # Load analytics domain config for quick actions
+            config = _load_domain_config("data_analytics")
+            return {
+                "domain": domain,
+                "name": config.get("name", "Data Analytics Expert Agent"),
+                "description": config.get("description", ""),
+                "quick_actions": config.get("quick_actions", []),
+            }
+        except Exception as e:
+            logger.logger.warning(f"Could not load analytics config: {e}")
+            # Fallback to PMM
+            pass
+    
+    # PMM domain or fallback
+    try:
+        config = _load_domain_config("pmm")
+        return {
+            "domain": domain,
+            "name": config.get("name", "PMM Deep Agent"),
+            "description": config.get("description", ""),
+            "quick_actions": config.get("quick_actions", []),
+        }
+    except Exception:
+        # Ultimate fallback
+        return {
+            "domain": domain,
+            "name": "PMM Deep Agent" if domain == "pmm" else "Data Analytics Expert Agent",
+            "description": "",
+            "quick_actions": [],
+        }
+
 
 @app.post("/chat")
 @limiter.limit("10/minute")  # 10 chat requests per minute per IP
@@ -182,7 +249,7 @@ async def chat(chat_request: ChatRequest, request: Request) -> ChatResponse:
     if session_id not in sessions:
         sessions[session_id] = {
             "messages": [
-                {"role": "system", "content": MAIN_SYSTEM_PROMPT}
+                {"role": "system", "content": get_system_prompt()}
             ]
         }
 
@@ -253,7 +320,7 @@ async def chat_stream(chat_request: ChatRequest, request: Request):
     if session_id not in sessions:
         sessions[session_id] = {
             "messages": [
-                {"role": "system", "content": MAIN_SYSTEM_PROMPT}
+                {"role": "system", "content": get_system_prompt()}
             ]
         }
 

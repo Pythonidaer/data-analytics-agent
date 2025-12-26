@@ -18,6 +18,9 @@ import {
   MessageSquare,
   Swords,
   TrendingUp,
+  Database,
+  Activity,
+  CheckSquare,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
@@ -31,6 +34,18 @@ import remarkGfm from "remark-gfm";
 // Only use localhost in development
 const API_URL = import.meta.env.VITE_API_URL || 
   (import.meta.env.DEV ? "http://localhost:8123" : "/api");
+
+// Domain configuration interface
+interface DomainConfig {
+  domain: string;
+  name: string;
+  description: string;
+  quick_actions: Array<{
+    label: string;
+    message: string;
+    icon: string;
+  }>;
+}
 
 // Tool display config with icons
 const TOOL_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
@@ -51,8 +66,16 @@ const TOOL_CONFIG: Record<string, { label: string; icon: string; color: string }
   identify_gaps: { label: "Identifying gaps", icon: "TrendingUp", color: "yellow" },
 };
 
-// Quick actions - PMM workflows
-const QUICK_ACTIONS = [
+// Icon mapping for emoji icons from config
+const EMOJI_ICON_MAP: Record<string, React.FC<{ className?: string }>> = {
+  "📊": BarChart3,
+  "📈": TrendingUp,
+  "💾": Database,
+  "✅": CheckSquare,
+};
+
+// Default PMM quick actions (fallback)
+const DEFAULT_PMM_QUICK_ACTIONS = [
   {
     label: "Competitive Analysis",
     prompt: "Help me analyze the competitive landscape for my product.",
@@ -139,6 +162,10 @@ const IconMap: Record<string, React.FC<{ className?: string }>> = {
   Swords,
   TrendingUp,
   CheckCircle2,
+  Database,
+  Activity,
+  CheckSquare,
+  ...EMOJI_ICON_MAP,
 };
 
 function ToolCallDisplay({ toolCall }: { toolCall: ToolCall }) {
@@ -167,7 +194,13 @@ function ToolCallDisplay({ toolCall }: { toolCall: ToolCall }) {
   );
 }
 
-function ChatMessage({ message }: { message: Message }) {
+function ChatMessage({ 
+  message, 
+  domain 
+}: { 
+  message: Message;
+  domain?: string;
+}) {
   const isUser = message.role === "user";
 
   return (
@@ -177,7 +210,11 @@ function ChatMessage({ message }: { message: Message }) {
       className={`flex gap-4 ${isUser ? "justify-end" : "justify-start"}`}
     >
       {!isUser && (
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-500/20">
+        <div className={`w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center flex-shrink-0 shadow-lg ${
+          domain === "data_analytics"
+            ? "from-blue-500 to-cyan-600 shadow-blue-500/20"
+            : "from-violet-500 to-purple-600 shadow-violet-500/20"
+        }`}>
           <Sparkles className="w-5 h-5 text-white" />
         </div>
       )}
@@ -219,12 +256,19 @@ function ChatMessage({ message }: { message: Message }) {
   );
 }
 
+interface QuickAction {
+  label: string;
+  prompt: string;
+  icon: React.FC<{ className?: string }>;
+  color: string;
+}
+
 function QuickActionButton({
   action,
   onSelect,
   disabled,
 }: {
-  action: typeof QUICK_ACTIONS[0];
+  action: QuickAction;
   onSelect: () => void;
   disabled: boolean;
 }) {
@@ -244,13 +288,57 @@ function QuickActionButton({
   );
 }
 
-function WelcomeScreen({ onQuickAction }: { onQuickAction: (prompt: string) => void }) {
+// Convert config quick actions to component format
+function convertQuickActions(config: DomainConfig): QuickAction[] {
+  const analyticsColors = ["blue", "cyan", "teal", "emerald"];
+  const pmmColors = ["red", "emerald", "purple", "blue", "orange", "indigo", "green", "yellow"];
+  
+  const isAnalytics = config.domain === "data_analytics";
+  const colorPool = isAnalytics ? analyticsColors : pmmColors;
+  
+  return config.quick_actions.map((qa, idx) => {
+    // Map emoji icons to lucide-react icons
+    // The icon from config is a string (emoji or icon name)
+    let IconComponent: React.FC<{ className?: string }> = FileText;
+    
+    // Check if it's an emoji (single character or emoji)
+    if (qa.icon && qa.icon.length <= 2 && EMOJI_ICON_MAP[qa.icon]) {
+      IconComponent = EMOJI_ICON_MAP[qa.icon];
+    } else if (qa.icon && IconMap[qa.icon]) {
+      // Check if it's a named icon
+      IconComponent = IconMap[qa.icon];
+    }
+    
+    return {
+      label: qa.label,
+      prompt: qa.message,
+      icon: IconComponent,
+      color: colorPool[idx % colorPool.length],
+    };
+  });
+}
+
+function WelcomeScreen({ 
+  onQuickAction, 
+  config 
+}: { 
+  onQuickAction: (prompt: string) => void;
+  config: DomainConfig;
+}) {
+  const isAnalytics = config.domain === "data_analytics";
+  const quickActions = convertQuickActions(config);
+  
+  // Color theme based on domain
+  const gradientClass = isAnalytics 
+    ? "from-blue-500 to-cyan-600 shadow-blue-500/30"
+    : "from-violet-500 to-purple-600 shadow-violet-500/30";
+  
   return (
     <div className="flex flex-col items-center justify-center h-full text-center p-8">
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mb-8 shadow-xl shadow-violet-500/30"
+        className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${gradientClass} flex items-center justify-center mb-8 shadow-xl`}
       >
         <Sparkles className="w-10 h-10 text-white" />
       </motion.div>
@@ -261,7 +349,7 @@ function WelcomeScreen({ onQuickAction }: { onQuickAction: (prompt: string) => v
         transition={{ delay: 0.1 }}
         className="text-3xl font-bold text-slate-100 mb-3"
       >
-        PMM Deep Agent
+        {config.name}
       </motion.h1>
 
       <motion.p
@@ -270,7 +358,9 @@ function WelcomeScreen({ onQuickAction }: { onQuickAction: (prompt: string) => v
         transition={{ delay: 0.2 }}
         className="text-slate-400 mb-2 max-w-md"
       >
-        Your product marketing intelligence assistant.
+        {config.description || (isAnalytics 
+          ? "Your analytics strategy and measurement planning assistant."
+          : "Your product marketing intelligence assistant.")}
       </motion.p>
 
       <motion.p
@@ -279,7 +369,9 @@ function WelcomeScreen({ onQuickAction }: { onQuickAction: (prompt: string) => v
         transition={{ delay: 0.3 }}
         className="text-slate-500 mb-10 text-sm"
       >
-        Turn market chaos into messaging clarity. Position with confidence.
+        {isAnalytics
+          ? "Turn data questions into measurement clarity. Build with confidence."
+          : "Turn market chaos into messaging clarity. Position with confidence."}
       </motion.p>
 
       <motion.div
@@ -288,7 +380,7 @@ function WelcomeScreen({ onQuickAction }: { onQuickAction: (prompt: string) => v
         transition={{ delay: 0.4 }}
         className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-3xl"
       >
-        {QUICK_ACTIONS.map((action) => (
+        {quickActions.map((action) => (
           <QuickActionButton
             key={action.label}
             action={action}
@@ -321,8 +413,52 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [domainConfig, setDomainConfig] = useState<DomainConfig | null>(null);
+  const [configLoading, setConfigLoading] = useState(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Fetch domain configuration on mount
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const response = await fetch(`${API_URL}/config`);
+        if (response.ok) {
+          const config = await response.json();
+          setDomainConfig(config);
+        } else {
+          // Fallback to default PMM config
+          setDomainConfig({
+            domain: "pmm",
+            name: "PMM Deep Agent",
+            description: "Your product marketing intelligence assistant.",
+            quick_actions: DEFAULT_PMM_QUICK_ACTIONS.map(qa => ({
+              label: qa.label,
+              message: qa.prompt,
+              icon: qa.icon.name || "FileText",
+            })),
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch config:", err);
+        // Fallback to default PMM config
+        setDomainConfig({
+          domain: "pmm",
+          name: "PMM Deep Agent",
+          description: "Your product marketing intelligence assistant.",
+          quick_actions: DEFAULT_PMM_QUICK_ACTIONS.map(qa => ({
+            label: qa.label,
+            message: qa.prompt,
+            icon: qa.icon.name || "FileText",
+          })),
+        });
+      } finally {
+        setConfigLoading(false);
+      }
+    };
+    
+    fetchConfig();
+  }, []);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -466,24 +602,50 @@ export default function App() {
       {/* Header */}
       <header className="border-b border-slate-800 px-6 py-4">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${
+            domainConfig?.domain === "data_analytics" 
+              ? "from-blue-500 to-cyan-600" 
+              : "from-violet-500 to-purple-600"
+          } flex items-center justify-center`}>
             <Sparkles className="w-4 h-4 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-slate-100">PMM Deep Agent</h1>
-            <p className="text-xs text-slate-500">Product marketing intelligence</p>
+            <h1 className="text-lg font-semibold text-slate-100">
+              {domainConfig?.name || "Loading..."}
+            </h1>
+            <p className="text-xs text-slate-500">
+              {domainConfig?.domain === "data_analytics" 
+                ? "Analytics strategy & measurement" 
+                : "Product marketing intelligence"}
+            </p>
           </div>
         </div>
       </header>
 
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto">
-        {messages.length === 0 ? (
-          <WelcomeScreen onQuickAction={sendMessage} />
+        {configLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+          </div>
+        ) : messages.length === 0 ? (
+          <WelcomeScreen 
+            onQuickAction={sendMessage} 
+            config={domainConfig || {
+              domain: "pmm",
+              name: "PMM Deep Agent",
+              description: "",
+              quick_actions: [],
+            }}
+          />
         ) : (
           <div className="max-w-4xl mx-auto p-6 space-y-6">
             {messages.map((msg) => (
-              <ChatMessage key={msg.id} message={msg} />
+              <ChatMessage 
+                key={msg.id} 
+                message={msg} 
+                domain={domainConfig?.domain}
+              />
             ))}
             <div ref={messagesEndRef} />
           </div>
@@ -501,19 +663,22 @@ export default function App() {
       <div className="border-t border-slate-800 p-4 bg-slate-900/80 backdrop-blur">
         <div className="max-w-4xl mx-auto">
           {/* Quick actions when in conversation */}
-          {messages.length > 0 && (
+          {messages.length > 0 && domainConfig && (
             <div className="mb-3 flex flex-wrap gap-2">
-              {QUICK_ACTIONS.slice(0, 4).map((action) => (
-                <button
-                  key={action.label}
-                  onClick={() => sendMessage(action.prompt)}
-                  disabled={isLoading}
-                  className="flex items-center gap-2 px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50"
-                >
-                  <action.icon className="w-3 h-3 text-slate-400" />
-                  <span className="text-slate-300">{action.label}</span>
-                </button>
-              ))}
+              {convertQuickActions(domainConfig).slice(0, 4).map((action) => {
+                const Icon = action.icon;
+                return (
+                  <button
+                    key={action.label}
+                    onClick={() => sendMessage(action.prompt)}
+                    disabled={isLoading}
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50"
+                  >
+                    <Icon className="w-3 h-3 text-slate-400" />
+                    <span className="text-slate-300">{action.label}</span>
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -524,14 +689,22 @@ export default function App() {
               onKeyDown={handleKeyDown}
               placeholder="Describe your product or ask a PMM question..."
               disabled={isLoading}
-              className="flex-1 resize-none rounded-xl border border-slate-700 bg-slate-800 p-4 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`flex-1 resize-none rounded-xl border border-slate-700 bg-slate-800 p-4 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed ${
+                domainConfig?.domain === "data_analytics"
+                  ? "focus:ring-blue-500/50"
+                  : "focus:ring-violet-500/50"
+              }`}
               rows={1}
               style={{ minHeight: "56px", maxHeight: "200px" }}
             />
             <button
               onClick={handleSubmit}
               disabled={isLoading || !input.trim()}
-              className="px-5 py-2 bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-xl hover:from-violet-600 hover:to-purple-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-violet-500/20"
+              className={`px-5 py-2 bg-gradient-to-r text-white rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg ${
+                domainConfig?.domain === "data_analytics"
+                  ? "from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 shadow-blue-500/20"
+                  : "from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 shadow-violet-500/20"
+              }`}
             >
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
