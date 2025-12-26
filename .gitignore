@@ -1,0 +1,78 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Build outputs
+apps/web/dist/
+apps/web/.vite/
+*.log
+
+# Logs and observability data
+apps/agent/logs/
+**/logs/*.jsonl
+**/logs/*.json
+
+# Cache
+.cache/
+.pytest_cache/
+.mypy_cache/
+
+# Secrets (never commit)
+*.pem
+*.key
+credentials.json
+
+# Local Netlify folder
+.netlify
+.vercel
+
+# Project-specific documentation (added during challenge implementation)
+docs/VERIFY_PRODUCTION_MODEL.md
+docs/SPLIT_MODEL_STRATEGY.md
+docs/PERFORMANCE_CHECKLIST_STEPS.md
+docs/MODEL_SWITCHING_GUIDE.md
+docs/HAIKU_QUALITY_TEST.md
+docs/DEPLOYMENT_CHECKLIST_SUMMARY.md
+docs/DEPLOYMENT_CHECKLIST_VERIFICATION.md
+docs/COST_OPTIMIZATION.md
+docs/COLD_START_OPTIMIZATION.md
+
+# Local development helper scripts
+apps/agent/restart_server.sh
+apps/agent/start_local.sh
+
+# Agent-specific documentation (added during challenge implementation)
+apps/agent/TOOL_TESTING.md
+apps/agent/OBSERVABILITY_SETUP.md
+apps/agent/DEBUGGING_GUIDE.md
+apps/agent/LOCAL_SETUP.md
+
+# Internship application tracking
+INTERNSHIP_APPLICATION.md
+TOMORROW_GAMEPLAN.md
+DOMAIN_CONVERSION_GAMEPLAN.md
+COPY_TO_NEW_REPO.md
+
+# Error tracking analysis
+docs/ERROR_TRACKING_ANALYSIS.md
