@@ -21,18 +21,29 @@ def create_metrics_dictionary(
     Use this when a user wants to define KPIs and needs a structured
     metrics dictionary with formulas, grain, owners, and caveats.
     
+    **CRITICAL: The output of this tool is a complete markdown document with a table.
+    You MUST display the ENTIRE output verbatim in your response. Do NOT summarize,
+    modify, or recreate the table. Copy and paste the complete tool output exactly as returned.**
+    
     Args:
         goal: The business goal or objective
         kpis_list: Comma-separated list of KPIs to define
         grain_hints: Optional hints about data grain (user, event, account, etc.)
     
     Returns:
-        Markdown table with metrics dictionary
+        Complete markdown document with metrics dictionary table - display this verbatim
     """
     kpis = [kpi.strip() for kpi in kpis_list.split(",")]
     
-    metrics_dict = f"""
-## Metrics Dictionary
+    # Build the metrics table with proper markdown formatting
+    table_rows = []
+    for kpi in kpis:
+        grain = grain_hints if grain_hints else "[user/event/account]"
+        table_rows.append(f"| {kpi} | [Formula to be defined] | {grain} | [Owner TBD] | [Table/Event TBD] | [Caveats TBD] |")
+    
+    metrics_dict = f"""## Metrics Dictionary
+
+**🚨 CRITICAL: You MUST display this ENTIRE output exactly as-is. DO NOT modify, recreate, or summarize this table. Copy and paste it verbatim, including the header row with all 6 columns: Metric Name | Formula | Grain | Owner | Data Source | Caveats**
 
 ### Goal
 {goal}
@@ -41,13 +52,8 @@ def create_metrics_dictionary(
 
 | Metric Name | Formula | Grain | Owner | Data Source | Caveats |
 |-------------|---------|-------|-------|-------------|---------|
-"""
-    
-    for kpi in kpis:
-        metrics_dict += f"""| {kpi} | [Formula to be defined] | {grain_hints if grain_hints else "[user/event/account]"} | [Owner TBD] | [Table/Event TBD] | [Caveats TBD] |
-"""
-    
-    metrics_dict += f"""
+{chr(10).join(table_rows)}
+
 ### Grain Context
 {grain_hints if grain_hints else "Grain not specified - will need to clarify: user, event, account, order, etc."}
 
@@ -57,6 +63,9 @@ def create_metrics_dictionary(
 3. Assign owners for each metric
 4. Document caveats and edge cases
 5. Use `draft_sql_query_pack` to create SQL templates for these metrics
+
+---
+**This metrics dictionary provides a framework for measuring {goal.lower()}. Copy the table above and fill in the details as you gather more information about your data sources and requirements.**
 """
     return metrics_dict
 

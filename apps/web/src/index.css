@@ -102,10 +102,13 @@ body {
   border-left-color: #475569;
 }
 
+/* Table styling - normal table structure */
 .prose table {
   width: 100%;
+  min-width: 600px; /* Minimum width to prevent cramping */
   border-collapse: collapse;
-  margin: 1em 0;
+  margin: 0; /* Margin handled by wrapper */
+  display: table; /* Critical: keep normal table display */
 }
 
 .prose th, .prose td {
@@ -113,6 +116,8 @@ body {
   border: 1px solid #334155;
   padding: 0.5em 0.75em;
   text-align: left;
+  white-space: normal; /* Allow text wrapping */
+  word-wrap: break-word;
 }
 
 .prose th {
@@ -123,6 +128,18 @@ body {
 
 .prose tr:nth-child(even) {
   background: rgba(30, 41, 59, 0.5);
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+  .prose table {
+    font-size: 0.875rem;
+    min-width: 500px;
+  }
+  
+  .prose th, .prose td {
+    padding: 0.4em 0.5em;
+  }
 }
 
 /* Checkbox styling */

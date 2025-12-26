@@ -242,7 +242,18 @@ function ChatMessage({
           {isUser ? (
             <p className="text-slate-100">{message.content}</p>
           ) : (
-            <Markdown remarkPlugins={[remarkGfm]}>{message.content}</Markdown>
+            <Markdown 
+              remarkPlugins={[remarkGfm]}
+              components={{
+                table: ({ children, ...props }) => (
+                  <div className="overflow-x-auto -mx-5 px-5 my-4">
+                    <table {...props} className="min-w-full">{children}</table>
+                  </div>
+                ),
+              }}
+            >
+              {message.content}
+            </Markdown>
           )}
         </div>
       </div>

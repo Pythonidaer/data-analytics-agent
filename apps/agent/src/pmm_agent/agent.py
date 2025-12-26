@@ -213,9 +213,10 @@ def create_analytics_agent(
         tools = ANALYTICS_RISK_TOOLS + ANALYTICS_RESEARCH_TOOLS
     
     # Initialize model with analytics system prompt
+    # Increased max_tokens to ensure complete responses, especially for metrics dictionaries and SQL templates
     llm = ChatAnthropic(
         model_name=model_name,
-        max_tokens=8192,
+        max_tokens=16384,  # Increased from 8192 to handle longer responses with tables and SQL
         system=ANALYTICS_SYSTEM_PROMPT,
     )
     
